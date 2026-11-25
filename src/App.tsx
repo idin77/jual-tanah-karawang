@@ -4,6 +4,10 @@
  */
 
 import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import PropertyMap, { MAP_LANDMARKS } from './components/PropertyMap';
+import PriceComparison from './components/PriceComparison';
+import RoiCalculator from './components/RoiCalculator';
 
 const NAV_ITEMS = [
   { href: '#beranda', label: 'Beranda' },
@@ -22,10 +26,14 @@ interface InquiryErrors {
   phone?: string;
 }
 
+type WhatsAppDeliveryStatus = 'sent' | 'pending_config' | 'deferred';
+
 interface SubmittedInquiry {
   name: string;
   email: string;
   phone: string;
+  deliveryStatus: WhatsAppDeliveryStatus;
+  recipientPhone: string;
 }
 
 interface FaqItem {
@@ -80,6 +88,156 @@ const FAQ_ITEMS: readonly FaqItem[] = [
   },
 ];
 
+interface SearchEntry {
+  id: string;
+  title: string;
+  snippet: string;
+  sectionLabel: string;
+  targetHref: string;
+  keywords: string;
+  faqId?: string;
+}
+
+const SEARCH_ENTRIES: readonly SearchEntry[] = [
+  {
+    id: 'shm-info',
+    title: 'Sertifikat SHM & Status Tanah Darat (4 Hektare / 40.000 m²)',
+    snippet: 'Lahan bersertifikat SHM, status tanah darat siap bangun, Zona Kuning di Jl. Raya Telukjambe.',
+    sectionLabel: 'Info Properti',
+    targetHref: '#tentang',
+    keywords: 'shm sertifikat hak milik tanah darat 4 hektare 40000 40.000 m2 zona kuning legalitas pbb imb pbg luas',
+  },
+  {
+    id: 'lokasi-akses',
+    title: 'Lokasi & Akses Jalan Raya Telukjambe, Karawang',
+    snippet: '100 m SPBU, 500 m pergudangan & hotel, 1 km Unsika/UBP & mall, 3 km KIIC/tol/MRT, 5 km Surya Cipta.',
+    sectionLabel: 'Lokasi & Akses',
+    targetHref: '#lokasi',
+    keywords:
+      'lokasi telukjambe karawang peta maps koordinat spbu hotel pergudangan mall unsika ubp kiic mitra peruri bi tol mrt surya cipta artha jalan raya',
+  },
+  {
+    id: 'potensi-gudang',
+    title: 'Potensi Gudang / Logistik, Townhouse, Rumah Sakit & Universitas',
+    snippet: 'Zona Kuning komersial & residential, ideal untuk pergudangan, townhouse, rumah sakit, kampus & area komersial.',
+    sectionLabel: 'Potensi',
+    targetHref: '#potensi',
+    keywords:
+      'gudang logistik pergudangan townhouse perumahan rumah sakit universitas kampus area komersial industri pabrik kantor',
+  },
+  {
+    id: 'harga-nego',
+    title: 'Analisis Investasi: Rp 2,50 Jt/m² (Rp 100 Milyard Nego) vs Kompetitor Karawang',
+    snippet: 'Tabel perbandingan harga tanah per m² di Karawang yang menonjolkan keunggulan nilai investasi lahan ini.',
+    sectionLabel: 'Analisis Investasi',
+    targetHref: '#analisis-investasi',
+    keywords:
+      'analisis investasi harga 100 milyard miliar 2.5 juta m2 meter persegi tabel perbandingan kompetitor valuasi pasar nego industri komersial',
+  },
+  {
+    id: 'kalkulator-roi',
+    title: 'Kalkulator Potensi ROI (Proyeksi Nilai Properti 5–10 Tahun)',
+    snippet: 'Simulasikan nilai investasi awal dan persentase kenaikan tahunan untuk melihat proyeksi jangka panjang.',
+    sectionLabel: 'Kalkulator ROI',
+    targetHref: '#kalkulator-roi',
+    keywords: 'kalkulator roi return on investment simulasi proyeksi pertumbuhan kenaikan tahunan 5 10 tahun untung',
+  },
+  {
+    id: 'galeri-video',
+    title: 'Galeri Foto Lahan & Video Survey 29 Detik',
+    snippet: 'Lihat foto drone, kondisi tanah darat subur, halaman, bangunan pendukung, serta video tur lokasi.',
+    sectionLabel: 'Galeri',
+    targetHref: '#galeri',
+    keywords: 'galeri foto video survey survei tur drone halaman bangunan taman jalan raya depan',
+  },
+  {
+    id: 'kontak-form',
+    title: 'Formulir Kontak, WhatsApp 0857 8106 8441 & QR Code',
+    snippet: 'Ajukan permintaan informasi, jadwalkan survei lokasi, atau pindai QR Code WhatsApp & vCard.',
+    sectionLabel: 'Kontak',
+    targetHref: '#kontak',
+    keywords: 'kontak hubungi whatsapp wa telepon email nama formulir survei qr code vcard simpan',
+  },
+  {
+    id: 'info-pemasaran',
+    title: 'Info Harga & Pendampingan Transaksi',
+    snippet: 'Pendampingan pengecekan sertifikat SHM, pengukuran ulang, survei lapangan hingga negosiasi harga.',
+    sectionLabel: 'Info Harga',
+    targetHref: '#info-tanah',
+    keywords: 'harga pemasaran pendampingan notaris ppat negosiasi korporasi investor',
+  },
+  {
+    id: 'testimoni-klien',
+    title: 'Testimoni Klien & Ulasan Investor (4,7 / 5)',
+    snippet: 'Pengalaman Bpk. Hendra W., Bpk. Suryadi A., dan Ibu Ratna D. bersama Mitra Property Indonesia.',
+    sectionLabel: 'Testimoni',
+    targetHref: '#testimoni',
+    keywords: 'testimoni ulasan review klien investor rating',
+  },
+  ...FAQ_ITEMS.map((faq) => ({
+    id: `faq-${faq.id}`,
+    title: faq.question,
+    snippet: faq.answer,
+    sectionLabel: 'FAQ',
+    targetHref: '#faq',
+    keywords: `${faq.category} ${faq.question} ${faq.answer} faq tanya jawab`.toLowerCase(),
+    faqId: faq.id,
+  })),
+];
+
+const QUICK_KEYWORDS = ['lokasi', 'SHM', 'gudang', 'harga', 'survei'] as const;
+
+interface LegalityDoc {
+  id: string;
+  code: string;
+  title: string;
+  status: string;
+  description: string;
+}
+
+const LEGALITY_DOCS: readonly LegalityDoc[] = [
+  {
+    id: 'shm',
+    code: 'SHM',
+    title: 'Sertifikat Hak Milik (SHM)',
+    status: 'Asli & Bebas Sengketa',
+    description:
+      'Bukti kepemilikan penuh atas lahan seluas 4 hektare (40.000 m²) dengan batas jelas serta siap dicek keabsahannya langsung ke BPN bersama Notaris/PPAT.',
+  },
+  {
+    id: 'pbb',
+    code: 'PBB',
+    title: 'SPPT & Bukti Lunas PBB Tahunan',
+    status: 'Aktif & Lunas',
+    description:
+      'Surat Pemberitahuan Pajak Terhutang (SPPT) dan bukti pembayaran Pajak Bumi dan Bangunan tercatat rapi serta bebas tunggakan.',
+  },
+  {
+    id: 'imb',
+    code: 'IMB / PBG',
+    title: 'Izin Mendirikan Bangunan (IMB / PBG)',
+    status: 'Dokumen Bangunan Lengkap',
+    description:
+      'Kelengkapan perizinan bangunan pendukung yang sudah berdiri di area lahan serta kesiapan pengajuan PBG baru sesuai rencana pengembangan pembeli.',
+  },
+  {
+    id: 'tata-ruang',
+    code: 'ZONA KUNING',
+    title: 'Kesesuaian Tata Ruang & Akses Ring 1',
+    status: 'Area Komersial & Residential',
+    description:
+      'Peruntukan resmi Zona Kuning di tepi Jl. Raya Telukjambe (Jalan Kabupaten Ring 1) yang mendukung townhouse, pergudangan, rumah sakit, kampus, maupun kawasan komersial.',
+  },
+  {
+    id: 'riwayat',
+    code: 'AJB & PETA',
+    title: 'Riwayat Kepemilikan & Peta Bidang',
+    status: 'Siap Uji Tuntas (Due Diligence)',
+    description:
+      'Kelengkapan riwayat kepemilikan, fotokopi identitas pemilik, serta dukungan pengukuran ulang lapangan saat proses pengajuan minat serius (LOI).',
+  },
+];
+
 export default function App() {
   const [activeNav, setActiveNav] = useState<string>('#beranda');
   const [openFaqId, setOpenFaqId] = useState<string>(FAQ_ITEMS[0].id);
@@ -87,10 +245,113 @@ export default function App() {
   const [email, setEmail] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [errors, setErrors] = useState<InquiryErrors>({});
+  const [submitError, setSubmitError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submittedInquiry, setSubmittedInquiry] = useState<SubmittedInquiry | null>(null);
+  const [qrMode, setQrMode] = useState<'whatsapp' | 'vcard'>('whatsapp');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchOpen, setSearchOpen] = useState<boolean>(false);
   const [shareOpen, setShareOpen] = useState<boolean>(false);
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
+  const [landmarkFilter, setLandmarkFilter] = useState<'all' | 'fasilitas' | 'industri'>('all');
+  const [selectedLandmarkId, setSelectedLandmarkId] = useState<string | null>(null);
+  const [legalityOpen, setLegalityOpen] = useState<boolean>(false);
   const shareRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredLandmarks =
+    landmarkFilter === 'all'
+      ? MAP_LANDMARKS
+      : MAP_LANDMARKS.filter((lm) => lm.category === landmarkFilter);
+
+  const handleLandmarkFilterChange = (nextFilter: 'all' | 'fasilitas' | 'industri') => {
+    setLandmarkFilter(nextFilter);
+    if (
+      selectedLandmarkId &&
+      nextFilter !== 'all' &&
+      !MAP_LANDMARKS.some((lm) => lm.id === selectedLandmarkId && lm.category === nextFilter)
+    ) {
+      setSelectedLandmarkId(null);
+    }
+  };
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const searchResults = normalizedQuery
+    ? SEARCH_ENTRIES.filter((entry) => {
+        const haystack = `${entry.title} ${entry.snippet} ${entry.keywords} ${entry.sectionLabel}`.toLowerCase();
+        return normalizedQuery.split(/\s+/).every((term) => haystack.includes(term));
+      })
+    : [];
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [searchOpen]);
+
+  const navigateToSearchEntry = (entry: SearchEntry) => {
+    if (entry.faqId) {
+      setOpenFaqId(entry.faqId);
+    }
+    if (NAV_ITEMS.some((item) => item.href === entry.targetHref)) {
+      setActiveNav(entry.targetHref);
+    }
+    setSearchOpen(false);
+    const targetEl = document.querySelector(entry.targetHref);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (searchResults.length > 0) {
+      navigateToSearchEntry(searchResults[0]);
+    } else if (normalizedQuery) {
+      setSearchOpen(true);
+    }
+  };
+
+  const whatsappDirectUrl =
+    'https://wa.me/6285781068441?text=Halo%2C%20saya%20tertarik%20dengan%20Tanah%20Strategis%204%20Hektare%20Telukjambe%20Karawang.%20Mohon%20info%20lengkapnya.';
+
+  const vcardData = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'FN:Mitra Property Indonesia',
+    'ORG:Mitra Property Indonesia',
+    'TITLE:Tim Pemasaran Tanah 4 Hektare Karawang',
+    'TEL;TYPE=CELL,VOICE:+6285781068441',
+    'URL:https://jualtanahkarawang.web.id/',
+    'ADR;TYPE=WORK:;;Jl. Raya Telukjambe;Telukjambe Timur;Karawang;Jawa Barat;ID',
+    'END:VCARD',
+  ].join('\n');
+
+  const handleDownloadVcard = () => {
+    const blob = new Blob([vcardData], { type: 'text/vcard;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Mitra-Property-Indonesia.vcf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (!shareOpen) return;
@@ -117,6 +378,17 @@ export default function App() {
     const timer = window.setTimeout(() => setLinkCopied(false), 2400);
     return () => window.clearTimeout(timer);
   }, [linkCopied]);
+
+  useEffect(() => {
+    if (!legalityOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setLegalityOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [legalityOpen]);
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : 'https://jualtanahkarawang.web.id/';
   const shareText =
@@ -148,7 +420,7 @@ export default function App() {
     }
   };
 
-  const handleInquirySubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleInquirySubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
@@ -168,23 +440,60 @@ export default function App() {
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      setSubmitError('');
       return;
     }
 
     setErrors({});
-    setSubmittedInquiry({
-      name: trimmedName,
-      email: trimmedEmail,
-      phone: trimmedPhone,
-    });
-    setName('');
-    setEmail('');
-    setPhone('');
+    setSubmitError('');
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/inquiry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: trimmedName,
+          email: trimmedEmail,
+          phone: trimmedPhone,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        deliveryStatus?: WhatsAppDeliveryStatus;
+        recipientPhone?: string;
+      };
+
+      if (!response.ok || !data.ok) {
+        setSubmitError(data.error || 'Terjadi kendala saat mengirim permintaan. Silakan coba lagi.');
+        return;
+      }
+
+      setSubmittedInquiry({
+        name: trimmedName,
+        email: trimmedEmail,
+        phone: trimmedPhone,
+        deliveryStatus: data.deliveryStatus ?? 'pending_config',
+        recipientPhone: data.recipientPhone ?? trimmedPhone,
+      });
+      setName('');
+      setEmail('');
+      setPhone('');
+    } catch {
+      setSubmitError('Koneksi ke server gagal. Periksa jaringan Anda atau hubungi WhatsApp 0857 8106 8441.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResetInquiry = () => {
     setSubmittedInquiry(null);
     setErrors({});
+    setSubmitError('');
   };
 
   return (
@@ -377,6 +686,10 @@ export default function App() {
           <symbol id="i-close" viewBox="0 0 24 24">
             <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
           </symbol>
+          <symbol id="i-search" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2.4" />
+            <path d="M16.5 16.5L21 21" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          </symbol>
         </defs>
       </svg>
 
@@ -413,6 +726,101 @@ export default function App() {
             </svg>
             Hubungi Kami
           </a>
+        </div>
+
+        <div className="top-search-strip">
+          <div className="wrap top-search-in">
+            <div className="search-box-wrap" ref={searchRef}>
+              <form className="search-form" role="search" onSubmit={handleSearchSubmit}>
+                <svg className="ic sic" aria-hidden="true">
+                  <use href="#i-search" />
+                </svg>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  aria-label="Cari informasi properti"
+                  placeholder="Cari informasi properti (mis. lokasi, SHM, gudang, harga, survei)..."
+                  onFocus={() => {
+                    if (normalizedQuery) setSearchOpen(true);
+                  }}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setSearchQuery(nextVal);
+                    setSearchOpen(nextVal.trim().length > 0);
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="search-clear"
+                    aria-label="Hapus kata kunci pencarian"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchOpen(false);
+                    }}
+                  >
+                    <svg className="ic" aria-hidden="true">
+                      <use href="#i-close" />
+                    </svg>
+                  </button>
+                )}
+                <button type="submit" className="search-submit">
+                  Cari
+                </button>
+              </form>
+
+              {searchOpen && normalizedQuery && (
+                <div className="search-results" role="listbox" aria-label="Hasil pencarian properti">
+                  <div className="search-res-hd">
+                    {searchResults.length > 0
+                      ? `Ditemukan ${searchResults.length} informasi untuk "${searchQuery.trim()}"`
+                      : `Pencarian "${searchQuery.trim()}"`}
+                  </div>
+                  {searchResults.length > 0 ? (
+                    searchResults.map((entry) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        className="search-res-item"
+                        onClick={() => navigateToSearchEntry(entry)}
+                      >
+                        <span className="search-res-main">
+                          <b>{entry.title}</b>
+                          <small>{entry.snippet}</small>
+                        </span>
+                        <span className="search-res-sec">{entry.sectionLabel}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="search-empty">
+                      Tidak ditemukan hasil untuk &ldquo;{searchQuery.trim()}&rdquo;. Coba kata kunci seperti{' '}
+                      <strong>lokasi</strong>, <strong>SHM</strong>, <strong>gudang</strong>, atau{' '}
+                      <strong>harga</strong>.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="search-quick" aria-label="Kata kunci populer">
+              <span className="search-quick-lbl">Kata kunci populer:</span>
+              {QUICK_KEYWORDS.map((keyword) => (
+                <button
+                  key={keyword}
+                  type="button"
+                  className="search-chip"
+                  onClick={() => {
+                    setSearchQuery(keyword);
+                    setSearchOpen(true);
+                  }}
+                >
+                  {keyword}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </header>
 
@@ -583,6 +991,24 @@ export default function App() {
                 cocok untuk berbagai pengembangan usaha sekaligus peluang investasi tanah Karawang jangka panjang
                 yang menjanjikan.
               </p>
+              <div className="legal-cta-row">
+                <button
+                  type="button"
+                  className="btn-legal"
+                  aria-haspopup="dialog"
+                  aria-expanded={legalityOpen}
+                  onClick={() => setLegalityOpen(true)}
+                >
+                  <svg className="ic" aria-hidden="true">
+                    <use href="#i-shield" />
+                  </svg>
+                  Info Legalitas
+                  <svg className="ic chev" aria-hidden="true">
+                    <use href="#i-chev" />
+                  </svg>
+                </button>
+                <span className="legal-cta-note">Cek daftar dokumen SHM, PBB, IMB/PBG &amp; Tata Ruang</span>
+              </div>
             </div>
           </article>
 
@@ -617,6 +1043,24 @@ export default function App() {
                 industri juga membuatnya diminati pencari tanah industri dijual Karawang untuk kebutuhan pergudangan
                 dan kantor operasional.
               </p>
+            </div>
+          </article>
+        </section>
+
+        <section className="wrap inv-sec" id="analisis-investasi">
+          <article className="card">
+            <h2 className="head">Analisis Investasi</h2>
+            <div className="card-b">
+              <PriceComparison />
+            </div>
+          </article>
+        </section>
+
+        <section className="wrap roi-sec" id="kalkulator-roi">
+          <article className="card">
+            <h2 className="head">Kalkulator Potensi ROI</h2>
+            <div className="card-b">
+              <RoiCalculator />
             </div>
           </article>
         </section>
@@ -707,102 +1151,60 @@ export default function App() {
                 pendidikan, logistik, hingga pengisian bahan bakar berada dalam radius berjalan kaki sampai beberapa
                 menit berkendara.
               </p>
+              <div className="loc-filters" role="group" aria-label="Filter pin landmark sekitar">
+                <button
+                  type="button"
+                  className={`map-ctrl-btn${landmarkFilter === 'all' ? ' active' : ''}`}
+                  onClick={() => handleLandmarkFilterChange('all')}
+                >
+                  Semua Akses ({MAP_LANDMARKS.length})
+                </button>
+                <button
+                  type="button"
+                  className={`map-ctrl-btn${landmarkFilter === 'fasilitas' ? ' active' : ''}`}
+                  onClick={() => handleLandmarkFilterChange('fasilitas')}
+                >
+                  Fasilitas &amp; Kota (&le; 1 km)
+                </button>
+                <button
+                  type="button"
+                  className={`map-ctrl-btn${landmarkFilter === 'industri' ? ' active' : ''}`}
+                  onClick={() => handleLandmarkFilterChange('industri')}
+                >
+                  Industri &amp; Tol (3&ndash;5 km)
+                </button>
+              </div>
               <div className="loc-grid">
-                <div className="lcard">
-                  <span className="lic">
-                    <svg className="ic">
-                      <use href="#i-fuel" />
-                    </svg>
-                  </span>
-                  <div>
-                    <b>Pom Bensin (SPBU)</b>
-                    <small>Tepat di depan lahan</small>
-                  </div>
-                  <span className="dist">100 m</span>
-                </div>
-                <div className="lcard">
-                  <span className="lic">
-                    <svg className="ic">
-                      <use href="#i-wh" />
-                    </svg>
-                  </span>
-                  <div>
-                    <b>Pergudangan &amp; Hotel</b>
-                    <small>Agregasi logistik &amp; menginap</small>
-                  </div>
-                  <span className="dist">500 m</span>
-                </div>
-                <div className="lcard">
-                  <span className="lic">
-                    <svg className="ic">
-                      <use href="#i-bag" />
-                    </svg>
-                  </span>
-                  <div>
-                    <b>Pusat Perbelanjaan &amp; Mall</b>
-                    <small>Belanja &amp; kuliner</small>
-                  </div>
-                  <span className="dist">1 km</span>
-                </div>
-                <div className="lcard">
-                  <span className="lic">
-                    <svg className="ic">
-                      <use href="#i-cap" />
-                    </svg>
-                  </span>
-                  <div>
-                    <b>Universitas Negeri (Unsika) &amp; Swasta (UBP)</b>
-                    <small>Pendidikan tinggi</small>
-                  </div>
-                  <span className="dist">1 km</span>
-                </div>
-                <div className="lcard">
-                  <span className="lic">
-                    <svg className="ic">
-                      <use href="#i-factory" />
-                    </svg>
-                  </span>
-                  <div>
-                    <b>Kawasan Industri Mitra, Peruri, Bank BI &amp; KIIC</b>
-                    <small>Sentra industri Karawang</small>
-                  </div>
-                  <span className="dist">3 km</span>
-                </div>
-                <div className="lcard">
-                  <span className="lic">
-                    <svg className="ic">
-                      <use href="#i-city" />
-                    </svg>
-                  </span>
-                  <div>
-                    <b>Pusat Kota, Pintu Tol &amp; Stasiun MRT</b>
-                    <small>Akses transportasi utama</small>
-                  </div>
-                  <span className="dist">3 km</span>
-                </div>
-                <div className="lcard">
-                  <span className="lic">
-                    <svg className="ic">
-                      <use href="#i-factory" />
-                    </svg>
-                  </span>
-                  <div>
-                    <b>Kawasan Industri Surya Cipta &amp; Artha</b>
-                    <small>Sentra industri Karawang</small>
-                  </div>
-                  <span className="dist">5 km</span>
-                </div>
+                {filteredLandmarks.map((landmark) => {
+                  const isActive = selectedLandmarkId === landmark.id;
+                  return (
+                    <button
+                      key={landmark.id}
+                      type="button"
+                      className={`lcard lcard-btn${isActive ? ' active' : ''}`}
+                      aria-pressed={isActive}
+                      onClick={() => setSelectedLandmarkId(isActive ? null : landmark.id)}
+                    >
+                      <span className="lic">
+                        <svg className="ic">
+                          <use href={landmark.iconId} />
+                        </svg>
+                      </span>
+                      <div className="lcard-txt">
+                        <b>{landmark.title}</b>
+                        <small>{landmark.subtitle}</small>
+                      </div>
+                      <span className="dist">{landmark.distance}</span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="map-wrap">
-                <div className="map-frame">
-                  <iframe
-                    title="Peta lokasi tanah di Jl. Raya Telukjambe, Telukjambe Timur, Kabupaten Karawang"
-                    src="https://maps.google.com/maps?q=-6.3289088,107.3115949&z=16&hl=id&output=embed"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    allowFullScreen
-                  />
-                </div>
+                <PropertyMap
+                  landmarks={filteredLandmarks}
+                  selectedLandmarkId={selectedLandmarkId}
+                  onSelectLandmark={setSelectedLandmarkId}
+                />
                 <div className="map-note">
                   <span className="pin">
                     <svg className="ic">
@@ -975,6 +1377,20 @@ export default function App() {
                           <strong>Telepon:</strong> {submittedInquiry.phone}
                         </span>
                       </div>
+                      <div
+                        className={`cform-wa-status${submittedInquiry.deliveryStatus === 'sent' ? '' : ' muted'}`}
+                      >
+                        <svg className="ic" aria-hidden="true">
+                          <use href="#i-wa" />
+                        </svg>
+                        <span>
+                          {submittedInquiry.deliveryStatus === 'sent'
+                            ? `Pesan terima kasih otomatis telah dikirim via WhatsApp ke +${submittedInquiry.recipientPhone}.`
+                            : submittedInquiry.deliveryStatus === 'pending_config'
+                              ? `Data diterima server untuk +${submittedInquiry.recipientPhone}. Pesan terima kasih WhatsApp otomatis siap dikirim setelah webhook WhatsApp diaktifkan.`
+                              : `Data diterima server. Pengiriman WhatsApp otomatis tertunda — Anda dapat langsung chat melalui tombol di bawah.`}
+                        </span>
+                      </div>
                       <div className="cform-success-btns">
                         <a
                           className="btn-submit"
@@ -1080,19 +1496,108 @@ export default function App() {
                         )}
                       </div>
                     </div>
+                    {submitError && (
+                      <div className="cform-server-err" role="alert">
+                        {submitError}
+                      </div>
+                    )}
                     <div className="cform-actions">
                       <span className="cform-note">
                         Data Anda hanya digunakan oleh tim Mitra Property Indonesia untuk tindak lanjut penawaran ini.
                       </span>
-                      <button type="submit" className="btn-submit">
+                      <button type="submit" className="btn-submit" disabled={isSubmitting}>
                         <svg className="ic">
                           <use href="#i-arrow" />
                         </svg>
-                        Kirim Permintaan Informasi
+                        {isSubmitting ? 'Mengirim...' : 'Kirim Permintaan Informasi'}
                       </button>
                     </div>
                   </form>
                 )}
+              </div>
+
+              <div className="cqr-card">
+                <div className="cqr-info">
+                  <h3>Pindai QR Code untuk Akses Cepat di Ponsel</h3>
+                  <p>
+                    Gunakan kamera ponsel atau pemindai QR Anda untuk langsung membuka percakapan WhatsApp atau
+                    menyimpan nomor kontak tim pemasaran Mitra Property Indonesia ke buku telepon.
+                  </p>
+                  <div className="cqr-tabs" role="tablist" aria-label="Pilih jenis QR Code kontak">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={qrMode === 'whatsapp'}
+                      className={`cqr-tab${qrMode === 'whatsapp' ? ' active' : ''}`}
+                      onClick={() => setQrMode('whatsapp')}
+                    >
+                      <svg className="ic" aria-hidden="true">
+                        <use href="#i-wa" />
+                      </svg>
+                      Chat WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={qrMode === 'vcard'}
+                      className={`cqr-tab${qrMode === 'vcard' ? ' active' : ''}`}
+                      onClick={() => setQrMode('vcard')}
+                    >
+                      <svg className="ic" aria-hidden="true">
+                        <use href="#i-phone" />
+                      </svg>
+                      Simpan Kontak
+                    </button>
+                  </div>
+                  <div className="cqr-meta">
+                    <span className="cqr-badge-num">
+                      {qrMode === 'whatsapp'
+                        ? 'Pindai untuk chat WhatsApp: 0857 8106 8441'
+                        : 'Pindai untuk simpan vCard: Mitra Property Indonesia (+62 857-8106-8441)'}
+                    </span>
+                    {qrMode === 'whatsapp' ? (
+                      <a
+                        className="cqr-dl"
+                        href={whatsappDirectUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <svg className="ic" aria-hidden="true">
+                          <use href="#i-wa" />
+                        </svg>
+                        Buka Chat WhatsApp
+                      </a>
+                    ) : (
+                      <button type="button" className="cqr-dl" onClick={handleDownloadVcard}>
+                        <svg className="ic" aria-hidden="true">
+                          <use href="#i-phone" />
+                        </svg>
+                        Unduh Kartu Kontak (.vcf)
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="cqr-box-wrap">
+                  <div className="cqr-box">
+                    <QRCodeSVG
+                      value={qrMode === 'whatsapp' ? whatsappDirectUrl : vcardData}
+                      size={156}
+                      level="M"
+                      bgColor="#FFFFFF"
+                      fgColor="#06234F"
+                      includeMargin={false}
+                      title={
+                        qrMode === 'whatsapp'
+                          ? 'QR Code Chat WhatsApp Mitra Property Indonesia 0857 8106 8441'
+                          : 'QR Code Simpan Kontak Mitra Property Indonesia 0857 8106 8441'
+                      }
+                    />
+                  </div>
+                  <span className="cqr-cap">
+                    {qrMode === 'whatsapp' ? 'WhatsApp • 0857 8106 8441' : 'Simpan Kontak • vCard'}
+                  </span>
+                </div>
               </div>
             </div>
           </section>
@@ -1331,7 +1836,12 @@ export default function App() {
             <span>Masa Depan Lebih Baik</span>
           </nav>
           <div className="sos">
-            <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+            <a
+              href="https://www.facebook.com/profile.php?id=61597016454595&locale=id_ID"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+            >
               <svg className="ic">
                 <use href="#i-fb" />
               </svg>
@@ -1413,6 +1923,101 @@ export default function App() {
           <span>{shareOpen ? 'Tutup' : 'Bagikan'}</span>
         </button>
       </div>
+
+      {legalityOpen && (
+        <div
+          className="legal-modal-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setLegalityOpen(false);
+            }
+          }}
+        >
+          <div
+            className="legal-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="legality-modal-title"
+          >
+            <div className="legal-modal-hd">
+              <div>
+                <span className="legal-modal-kicker">Verifikasi Dokumen Resmi</span>
+                <h3 id="legality-modal-title">Daftar Dokumen Legalitas Lahan (4 Hektare)</h3>
+              </div>
+              <button
+                type="button"
+                className="legal-modal-close"
+                aria-label="Tutup dialog info legalitas"
+                onClick={() => setLegalityOpen(false)}
+              >
+                <svg className="ic" aria-hidden="true">
+                  <use href="#i-close" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="legal-modal-body">
+              <p className="legal-modal-intro">
+                Seluruh dokumen kepemilikan tanah di Jl. Raya Telukjambe, Karawang telah disiapkan untuk pemeriksaan
+                transparan bersama Notaris/PPAT dan BPN sebelum proses transaksi.
+              </p>
+              <ul className="legal-doc-list">
+                {LEGALITY_DOCS.map((doc) => (
+                  <li key={doc.id} className="legal-doc-item">
+                    <span className="legal-doc-badge">{doc.code}</span>
+                    <div className="legal-doc-main">
+                      <div className="legal-doc-top">
+                        <strong>{doc.title}</strong>
+                        <span className="legal-doc-status">
+                          <svg className="ic" aria-hidden="true">
+                            <use href="#i-check" />
+                          </svg>
+                          {doc.status}
+                        </span>
+                      </div>
+                      <p>{doc.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="legal-modal-ft">
+              <button
+                type="button"
+                className="btn-legal-primary"
+                onClick={() => {
+                  setLegalityOpen(false);
+                  setActiveNav('#kontak');
+                  document.querySelector('#kontak')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                Jadwalkan Cek Dokumen &amp; Survei
+              </button>
+              <a
+                className="btn-wa"
+                href={whatsappDirectUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setLegalityOpen(false)}
+              >
+                <svg className="ic" aria-hidden="true">
+                  <use href="#i-wa" />
+                </svg>
+                Tanya via WhatsApp
+              </a>
+              <button
+                type="button"
+                className="btn-legal-close"
+                onClick={() => setLegalityOpen(false)}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
