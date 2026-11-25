@@ -5,9 +5,11 @@
 
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { MapPin, ShieldCheck, TrendingUp } from 'lucide-react';
 import PropertyMap, { MAP_LANDMARKS } from './components/PropertyMap';
 import PriceComparison from './components/PriceComparison';
 import RoiCalculator from './components/RoiCalculator';
+import QrBrochureScanner from './components/QrBrochureScanner';
 
 const NAV_ITEMS = [
   { href: '#beranda', label: 'Beranda' },
@@ -126,6 +128,15 @@ const SEARCH_ENTRIES: readonly SearchEntry[] = [
       'gudang logistik pergudangan townhouse perumahan rumah sakit universitas kampus area komersial industri pabrik kantor',
   },
   {
+    id: 'investment-highlights',
+    title: 'Investment Highlights — Keunggulan Finansial Lahan 4 Hektare',
+    snippet: 'High Appreciation Potential, Strategic Business Location (Ring 1 Telukjambe), dan Immediate Development Readiness (SHM Zona Kuning).',
+    sectionLabel: 'Investment Highlights',
+    targetHref: '#investment-highlights',
+    keywords:
+      'investment highlights keunggulan finansial high appreciation potential strategic business location immediate development readiness modal gain roi shm zona kuning',
+  },
+  {
     id: 'harga-nego',
     title: 'Analisis Investasi: Rp 2,50 Jt/m² (Rp 100 Milyard Nego) vs Kompetitor Karawang',
     snippet: 'Tabel perbandingan harga tanah per m² di Karawang yang menonjolkan keunggulan nilai investasi lahan ini.',
@@ -152,11 +163,11 @@ const SEARCH_ENTRIES: readonly SearchEntry[] = [
   },
   {
     id: 'kontak-form',
-    title: 'Formulir Kontak, WhatsApp 0857 8106 8441 & QR Code',
-    snippet: 'Ajukan permintaan informasi, jadwalkan survei lokasi, atau pindai QR Code WhatsApp & vCard.',
+    title: 'Formulir Kontak, WhatsApp 0857 8106 8441, QR Code & Pindai Brosur',
+    snippet: 'Ajukan permintaan informasi, jadwalkan survei lokasi, pindai QR Code kontak, atau scan QR brosur cetak.',
     sectionLabel: 'Kontak',
     targetHref: '#kontak',
-    keywords: 'kontak hubungi whatsapp wa telepon email nama formulir survei qr code vcard simpan',
+    keywords: 'kontak hubungi whatsapp wa telepon email nama formulir survei qr code vcard simpan brosur scan pindai kamera',
   },
   {
     id: 'info-pemasaran',
@@ -248,7 +259,7 @@ export default function App() {
   const [submitError, setSubmitError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submittedInquiry, setSubmittedInquiry] = useState<SubmittedInquiry | null>(null);
-  const [qrMode, setQrMode] = useState<'whatsapp' | 'vcard'>('whatsapp');
+  const [qrMode, setQrMode] = useState<'whatsapp' | 'vcard' | 'website'>('whatsapp');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
   const [shareOpen, setShareOpen] = useState<boolean>(false);
@@ -256,6 +267,7 @@ export default function App() {
   const [landmarkFilter, setLandmarkFilter] = useState<'all' | 'fasilitas' | 'industri'>('all');
   const [selectedLandmarkId, setSelectedLandmarkId] = useState<string | null>(null);
   const [legalityOpen, setLegalityOpen] = useState<boolean>(false);
+  const [scannerOpen, setScannerOpen] = useState<boolean>(false);
   const shareRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLDivElement | null>(null);
 
@@ -393,6 +405,21 @@ export default function App() {
   const shareUrl = typeof window !== 'undefined' ? window.location.href : 'https://jualtanahkarawang.web.id/';
   const shareText =
     'Jual Tanah Strategis 4 Hektare (40.000 m²) SHM Zona Kuning di Jl. Raya Telukjambe, Karawang — Mitra Property Indonesia:';
+  const emailSubject = 'Info Tanah Strategis 4 Hektare (40.000 m²) SHM di Telukjambe, Karawang';
+  const emailBody = [
+    'Halo,',
+    '',
+    'Berikut informasi penawaran properti dari Mitra Property Indonesia:',
+    '- Luas Tanah: 4 Hektare (40.000 m²)',
+    '- Legalitas: Sertifikat SHM, Status Tanah Darat, Zona Kuning (Komersial & Residential)',
+    '- Lokasi: Jl. Raya Telukjambe, Telukjambe Timur, Kab. Karawang (Ring 1)',
+    '- Harga Penawaran: Rp 100 Milyard (Nego)',
+    '- Info & WhatsApp: 0857 8106 8441',
+    '',
+    'Lihat detail lengkap, peta interaktif, dan analisis investasi di:',
+    shareUrl,
+  ].join('\n');
+  const mailtoShareHref = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
 
   const handleCopyLink = async () => {
     try {
@@ -690,6 +717,36 @@ export default function App() {
             <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2.4" />
             <path d="M16.5 16.5L21 21" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </symbol>
+          <symbol id="i-mail" viewBox="0 0 24 24">
+            <rect
+              x="3"
+              y="5"
+              width="18"
+              height="14"
+              rx="2.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+            />
+            <path
+              d="M4 7l8 6 8-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </symbol>
+          <symbol id="i-camera" viewBox="0 0 24 24">
+            <path
+              d="M4 7h3l1.7-2.4A1.5 1.5 0 019.9 4h4.2a1.5 1.5 0 011.2.6L17 7h3a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.1"
+              strokeLinejoin="round"
+            />
+            <circle cx="12" cy="13.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="2.1" />
+          </symbol>
         </defs>
       </svg>
 
@@ -820,6 +877,18 @@ export default function App() {
                 </button>
               ))}
             </div>
+
+            <button
+              type="button"
+              className="btn-scan-top"
+              aria-haspopup="dialog"
+              onClick={() => setScannerOpen(true)}
+            >
+              <svg className="ic" aria-hidden="true">
+                <use href="#i-camera" />
+              </svg>
+              Pindai QR Brosur
+            </button>
           </div>
         </div>
       </header>
@@ -1043,6 +1112,51 @@ export default function App() {
                 industri juga membuatnya diminati pencari tanah industri dijual Karawang untuk kebutuhan pergudangan
                 dan kantor operasional.
               </p>
+            </div>
+          </article>
+        </section>
+
+        <section className="wrap hi-sec" id="investment-highlights">
+          <article className="card">
+            <h2 className="head">Investment Highlights</h2>
+            <div className="card-b">
+              <div className="hi-grid">
+                <div className="hi-card">
+                  <span className="hi-ic" aria-hidden="true">
+                    <TrendingUp className="ic" size={24} strokeWidth={2.2} />
+                  </span>
+                  <h3>High Appreciation Potential</h3>
+                  <p>
+                    Offered at an effective <strong>Rp 2,50 Jt/m&sup2;</strong> (Rp 100 Milyard Nego for 40,000 m&sup2;),
+                    roughly 35% below competing Karawang commercial and industrial corridors—locking in immediate equity
+                    margin and strong capital appreciation near KIIC and planned MRT access.
+                  </p>
+                </div>
+
+                <div className="hi-card">
+                  <span className="hi-ic" aria-hidden="true">
+                    <MapPin className="ic" size={24} strokeWidth={2.2} />
+                  </span>
+                  <h3>Strategic Business Location</h3>
+                  <p>
+                    Direct frontage on <strong>Jl. Raya Telukjambe</strong> (Jalan Kabupaten Ring 1), within 100 m of an
+                    SPBU, 1 km of Unsika, UBP &amp; shopping malls, and 3 km of KIIC, Toll Gates &amp; Peruri—maximizing
+                    commercial visibility, tenant demand, and logistics efficiency.
+                  </p>
+                </div>
+
+                <div className="hi-card">
+                  <span className="hi-ic" aria-hidden="true">
+                    <ShieldCheck className="ic" size={24} strokeWidth={2.2} />
+                  </span>
+                  <h3>Immediate Development Readiness</h3>
+                  <p>
+                    Backed by a clear <strong>SHM</strong> certificate, solid dry land (<em>Tanah Darat</em>), and
+                    official <strong>Zona Kuning</strong> (Commercial &amp; Residential) zoning—eliminating costly
+                    reclamation or rezoning delays for townhouses, warehouses, hospitals, or campuses.
+                  </p>
+                </div>
+              </div>
             </div>
           </article>
         </section>
@@ -1548,12 +1662,26 @@ export default function App() {
                       </svg>
                       Simpan Kontak
                     </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={qrMode === 'website'}
+                      className={`cqr-tab${qrMode === 'website' ? ' active' : ''}`}
+                      onClick={() => setQrMode('website')}
+                    >
+                      <svg className="ic" aria-hidden="true">
+                        <use href="#i-link" />
+                      </svg>
+                      Website (Brosur)
+                    </button>
                   </div>
                   <div className="cqr-meta">
                     <span className="cqr-badge-num">
                       {qrMode === 'whatsapp'
                         ? 'Pindai untuk chat WhatsApp: 0857 8106 8441'
-                        : 'Pindai untuk simpan vCard: Mitra Property Indonesia (+62 857-8106-8441)'}
+                        : qrMode === 'vcard'
+                          ? 'Pindai untuk simpan vCard: Mitra Property Indonesia (+62 857-8106-8441)'
+                          : 'Pindai untuk membuka website resmi Mitra Property Indonesia'}
                     </span>
                     {qrMode === 'whatsapp' ? (
                       <a
@@ -1567,21 +1695,32 @@ export default function App() {
                         </svg>
                         Buka Chat WhatsApp
                       </a>
-                    ) : (
+                    ) : qrMode === 'vcard' ? (
                       <button type="button" className="cqr-dl" onClick={handleDownloadVcard}>
                         <svg className="ic" aria-hidden="true">
                           <use href="#i-phone" />
                         </svg>
                         Unduh Kartu Kontak (.vcf)
                       </button>
-                    )}
+                    ) : null}
+                    <button
+                      type="button"
+                      className="cqr-dl scan-trigger"
+                      aria-haspopup="dialog"
+                      onClick={() => setScannerOpen(true)}
+                    >
+                      <svg className="ic" aria-hidden="true">
+                        <use href="#i-camera" />
+                      </svg>
+                      Scan QR Brosur (Kamera)
+                    </button>
                   </div>
                 </div>
 
                 <div className="cqr-box-wrap">
                   <div className="cqr-box">
                     <QRCodeSVG
-                      value={qrMode === 'whatsapp' ? whatsappDirectUrl : vcardData}
+                      value={qrMode === 'whatsapp' ? whatsappDirectUrl : qrMode === 'vcard' ? vcardData : shareUrl}
                       size={156}
                       level="M"
                       bgColor="#FFFFFF"
@@ -1590,12 +1729,18 @@ export default function App() {
                       title={
                         qrMode === 'whatsapp'
                           ? 'QR Code Chat WhatsApp Mitra Property Indonesia 0857 8106 8441'
-                          : 'QR Code Simpan Kontak Mitra Property Indonesia 0857 8106 8441'
+                          : qrMode === 'vcard'
+                            ? 'QR Code Simpan Kontak Mitra Property Indonesia 0857 8106 8441'
+                            : 'QR Code Website Mitra Property Indonesia'
                       }
                     />
                   </div>
                   <span className="cqr-cap">
-                    {qrMode === 'whatsapp' ? 'WhatsApp • 0857 8106 8441' : 'Simpan Kontak • vCard'}
+                    {qrMode === 'whatsapp'
+                      ? 'WhatsApp • 0857 8106 8441'
+                      : qrMode === 'vcard'
+                        ? 'Simpan Kontak • vCard'
+                        : 'Website • Brosur Cetak'}
                   </span>
                 </div>
               </div>
@@ -1907,6 +2052,19 @@ export default function App() {
               </span>
               <span>Bagikan ke Facebook</span>
             </a>
+            <a
+              className="share-opt"
+              role="menuitem"
+              href={mailtoShareHref}
+              onClick={() => setShareOpen(false)}
+            >
+              <span className="share-opt-ic mail" aria-hidden="true">
+                <svg className="ic">
+                  <use href="#i-mail" />
+                </svg>
+              </span>
+              <span>Bagikan via Email</span>
+            </a>
           </div>
         )}
         <button
@@ -2018,6 +2176,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <QrBrochureScanner open={scannerOpen} onClose={() => setScannerOpen(false)} />
     </>
   );
 }

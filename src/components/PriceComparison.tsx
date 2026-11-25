@@ -125,11 +125,13 @@ export default function PriceComparison() {
                         {item.segment} &middot; {item.accessScore}
                       </small>
                     </td>
-                    <td>
+                    <td data-label="Legalitas">
                       <span className={`inv-leg${item.isFeatured ? ' shm' : ''}`}>{item.legality}</span>
                     </td>
-                    <td className="num price">{formatMillionRupiah(item.pricePerSqm)}</td>
-                    <td className="num">
+                    <td data-label="Harga / m²" className="num price">
+                      {formatMillionRupiah(item.pricePerSqm)}
+                    </td>
+                    <td data-label="Perbandingan" className="num">
                       <span className={`inv-diff${item.isFeatured ? ' best' : ''}`}>{item.diffLabel}</span>
                     </td>
                   </tr>
