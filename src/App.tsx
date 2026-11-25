@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 const NAV_ITEMS = [
   { href: '#beranda', label: 'Beranda' },
@@ -16,8 +16,176 @@ const NAV_ITEMS = [
   { href: '#kontak', label: 'Kontak' },
 ] as const;
 
+interface InquiryErrors {
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface SubmittedInquiry {
+  name: string;
+  email: string;
+  phone: string;
+}
+
+interface FaqItem {
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+}
+
+const FAQ_ITEMS: readonly FaqItem[] = [
+  {
+    id: 'legalitas-shm',
+    category: 'Legalitas Tanah',
+    question: 'Apakah legalitas sertifikat tanah 4 hektare ini sudah jelas dan bebas sengketa?',
+    answer:
+      'Ya. Lahan seluas 4 hektare (40.000 m²) ini memiliki Sertifikat Hak Milik (SHM) yang sah, berstatus tanah darat siap bangun, dan bebas dari sengketa. Tim Mitra Property Indonesia siap mendampingi calon pembeli untuk melakukan pengecekan keabsahan sertifikat langsung bersama Notaris/PPAT dan BPN sebelum transaksi berlangsung.',
+  },
+  {
+    id: 'legalitas-zona',
+    category: 'Legalitas Tanah',
+    question: 'Apa status zona tata ruang lahan ini dan peruntukan apa saja yang diizinkan?',
+    answer:
+      'Lahan berada di Zona Kuning (Area Komersial & Residential) tepat di tepi Jalan Raya Telukjambe dengan akses Jalan Kabupaten Ring 1. Peruntukan ini mendukung berbagai pengembangan seperti townhouse, pergudangan/logistik, rumah sakit, universitas, perkantoran, hingga kawasan komersial.',
+  },
+  {
+    id: 'pembayaran-mekanisme',
+    category: 'Mekanisme Pembayaran',
+    question: 'Bagaimana mekanisme pembayaran dan apakah harga Rp 100 Milyard masih bisa nego?',
+    answer:
+      'Harga penawaran Rp 100 Milyard bersifat fleksibel (nego) bagi calon pembeli atau investor serius setelah melakukan survei lokasi. Mekanisme transaksi dilakukan secara transparan melalui tanda jadi (booking fee), uang muka (DP), hingga pelunasan dan penandatanganan Akta Jual Beli (AJB) di hadapan Notaris/PPAT resmi.',
+  },
+  {
+    id: 'pembayaran-skema',
+    category: 'Mekanisme Pembayaran',
+    question: 'Apakah tersedia opsi termin pembayaran bertahap untuk transaksi korporasi?',
+    answer:
+      'Kami terbuka mendiskusikan skema pembayaran bertahap maupun termin sesuai kesepakatan antara pemilik lahan dan pihak pembeli/korporasi, dengan seluruh kesepakatan dituangkan secara resmi dalam PPJB Notaris agar aman bagi kedua belah pihak.',
+  },
+  {
+    id: 'survei-jadwal',
+    category: 'Proses Survei',
+    question: 'Bagaimana cara menjadwalkan survei langsung ke lokasi di Telukjambe, Karawang?',
+    answer:
+      'Anda dapat mengajukan jadwal survei melalui formulir pada bagian Kontak di atas atau menghubungi langsung tim pemasaran kami via WhatsApp di 0857 8106 8441. Tim kami akan mendampingi penuh saat peninjauan batas lahan, kondisi kontur tanah, dan akses jalan di lapangan.',
+  },
+  {
+    id: 'survei-dokumen',
+    category: 'Proses Survei',
+    question: 'Pendampingan dan data apa saja yang diberikan selama proses survei dan uji tuntas?',
+    answer:
+      'Saat kunjungan lokasi, tim kami menyediakan informasi koordinat batas lahan, akses fasilitas sekitar, serta data awal legalitas. Untuk pembeli yang melanjutkan ke tahap keseriusan (LOI), kami memfasilitasi pengukuran ulang luas lahan serta verifikasi dokumen SHM bersama Notaris/PPAT pilihan Anda.',
+  },
+];
+
 export default function App() {
   const [activeNav, setActiveNav] = useState<string>('#beranda');
+  const [openFaqId, setOpenFaqId] = useState<string>(FAQ_ITEMS[0].id);
+  const [name, setName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [errors, setErrors] = useState<InquiryErrors>({});
+  const [submittedInquiry, setSubmittedInquiry] = useState<SubmittedInquiry | null>(null);
+  const [shareOpen, setShareOpen] = useState<boolean>(false);
+  const [linkCopied, setLinkCopied] = useState<boolean>(false);
+  const shareRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!shareOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (shareRef.current && !shareRef.current.contains(event.target as Node)) {
+        setShareOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShareOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [shareOpen]);
+
+  useEffect(() => {
+    if (!linkCopied) return;
+    const timer = window.setTimeout(() => setLinkCopied(false), 2400);
+    return () => window.clearTimeout(timer);
+  }, [linkCopied]);
+
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : 'https://jualtanahkarawang.web.id/';
+  const shareText =
+    'Jual Tanah Strategis 4 Hektare (40.000 m²) SHM Zona Kuning di Jl. Raya Telukjambe, Karawang — Mitra Property Indonesia:';
+
+  const handleCopyLink = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = shareUrl;
+        tempInput.setAttribute('readonly', '');
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      }
+      setLinkCopied(true);
+    } catch {
+      const tempInput = document.createElement('textarea');
+      tempInput.value = shareUrl;
+      tempInput.setAttribute('readonly', '');
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      setLinkCopied(true);
+    }
+  };
+
+  const handleInquirySubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
+    const nextErrors: InquiryErrors = {};
+
+    if (trimmedName.length < 2) {
+      nextErrors.name = 'Masukkan nama lengkap Anda.';
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      nextErrors.email = 'Masukkan alamat email yang valid.';
+    }
+    const digitCount = trimmedPhone.replace(/\D/g, '').length;
+    if (digitCount < 9 || digitCount > 16) {
+      nextErrors.phone = 'Masukkan nomor telepon / WhatsApp yang valid.';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setErrors({});
+    setSubmittedInquiry({
+      name: trimmedName,
+      email: trimmedEmail,
+      phone: trimmedPhone,
+    });
+    setName('');
+    setEmail('');
+    setPhone('');
+  };
+
+  const handleResetInquiry = () => {
+    setSubmittedInquiry(null);
+    setErrors({});
+  };
 
   return (
     <>
@@ -181,6 +349,33 @@ export default function App() {
           </symbol>
           <symbol id="i-star" viewBox="0 0 24 24">
             <path d="M12 1.9l3.2 6.5 7.1 1-5.1 5 1.2 7.1L12 18.1l-6.4 3.4 1.2-7.1-5.1-5 7.1-1z" fill="currentColor" />
+          </symbol>
+          <symbol id="i-share" viewBox="0 0 24 24">
+            <circle cx="18" cy="5" r="3" fill="none" stroke="currentColor" strokeWidth="2.2" />
+            <circle cx="6" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="2.2" />
+            <circle cx="18" cy="19" r="3" fill="none" stroke="currentColor" strokeWidth="2.2" />
+            <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          </symbol>
+          <symbol id="i-link" viewBox="0 0 24 24">
+            <path
+              d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </symbol>
+          <symbol id="i-close" viewBox="0 0 24 24">
+            <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
           </symbol>
         </defs>
       </svg>
@@ -755,6 +950,150 @@ export default function App() {
                   </svg>
                 </a>
               </div>
+
+              <div className="cform-card">
+                {submittedInquiry ? (
+                  <div className="cform-success" role="status" aria-live="polite">
+                    <svg className="ic cform-success-ic" aria-hidden="true">
+                      <use href="#i-check" />
+                    </svg>
+                    <div>
+                      <h3>Permintaan Informasi Berhasil Dikirim!</h3>
+                      <p>
+                        Terima kasih, tim pemasaran Mitra Property Indonesia telah menerima permintaan informasi Anda
+                        untuk tanah strategis 4 hektare di Jl. Raya Telukjambe, Karawang dan akan segera menghubungi
+                        Anda.
+                      </p>
+                      <div className="cform-summary">
+                        <span>
+                          <strong>Nama:</strong> {submittedInquiry.name}
+                        </span>
+                        <span>
+                          <strong>Email:</strong> {submittedInquiry.email}
+                        </span>
+                        <span>
+                          <strong>Telepon:</strong> {submittedInquiry.phone}
+                        </span>
+                      </div>
+                      <div className="cform-success-btns">
+                        <a
+                          className="btn-submit"
+                          href={`https://wa.me/6285781068441?text=${encodeURIComponent(
+                            `Halo Mitra Property Indonesia, saya ${submittedInquiry.name} (${submittedInquiry.email} / ${submittedInquiry.phone}) ingin mendapatkan informasi lebih lanjut mengenai Tanah Strategis 4 Hektare di Jl. Raya Telukjambe, Karawang.`,
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <svg className="ic">
+                            <use href="#i-wa" />
+                          </svg>
+                          Lanjutkan via WhatsApp
+                        </a>
+                        <button type="button" className="btn-ghost" onClick={handleResetInquiry}>
+                          Kirim Permintaan Lain
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleInquirySubmit} noValidate>
+                    <div className="cform-head">
+                      <h3>Formulir Permintaan Informasi &amp; Jadwal Survei</h3>
+                      <p>
+                        Tinggalkan nama, email, dan nomor telepon Anda agar tim pemasaran kami dapat segera
+                        menghubungi untuk informasi lengkap atau penjadwalan survei lokasi.
+                      </p>
+                    </div>
+                    <div className="cform-grid">
+                      <div className="cfield">
+                        <label htmlFor="inquiry-name">Nama Lengkap</label>
+                        <input
+                          id="inquiry-name"
+                          name="name"
+                          type="text"
+                          autoComplete="name"
+                          placeholder="Contoh: Bpk. Budi Santoso"
+                          value={name}
+                          onChange={(e) => {
+                            setName(e.target.value);
+                            if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                          }}
+                          className={errors.name ? 'err' : undefined}
+                          aria-invalid={Boolean(errors.name)}
+                          aria-describedby={errors.name ? 'inquiry-name-error' : undefined}
+                          required
+                        />
+                        {errors.name && (
+                          <span id="inquiry-name-error" className="cfield-err">
+                            {errors.name}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="cfield">
+                        <label htmlFor="inquiry-email">Alamat Email</label>
+                        <input
+                          id="inquiry-email"
+                          name="email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="Contoh: nama@perusahaan.com"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                          }}
+                          className={errors.email ? 'err' : undefined}
+                          aria-invalid={Boolean(errors.email)}
+                          aria-describedby={errors.email ? 'inquiry-email-error' : undefined}
+                          required
+                        />
+                        {errors.email && (
+                          <span id="inquiry-email-error" className="cfield-err">
+                            {errors.email}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="cfield">
+                        <label htmlFor="inquiry-phone">Nomor Telepon / WhatsApp</label>
+                        <input
+                          id="inquiry-phone"
+                          name="phone"
+                          type="tel"
+                          autoComplete="tel"
+                          placeholder="Contoh: 0812 3456 7890"
+                          value={phone}
+                          onChange={(e) => {
+                            setPhone(e.target.value);
+                            if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+                          }}
+                          className={errors.phone ? 'err' : undefined}
+                          aria-invalid={Boolean(errors.phone)}
+                          aria-describedby={errors.phone ? 'inquiry-phone-error' : undefined}
+                          required
+                        />
+                        {errors.phone && (
+                          <span id="inquiry-phone-error" className="cfield-err">
+                            {errors.phone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="cform-actions">
+                      <span className="cform-note">
+                        Data Anda hanya digunakan oleh tim Mitra Property Indonesia untuk tindak lanjut penawaran ini.
+                      </span>
+                      <button type="submit" className="btn-submit">
+                        <svg className="ic">
+                          <use href="#i-arrow" />
+                        </svg>
+                        Kirim Permintaan Informasi
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             </div>
           </section>
         </div>
@@ -911,6 +1250,69 @@ export default function App() {
             </div>
           </article>
         </section>
+
+        <section className="wrap loc-sec" id="faq">
+          <article className="card">
+            <h2 className="head">Tanya Jawab (FAQ)</h2>
+            <div className="card-b">
+              <p className="loc-intro">
+                Jawaban atas pertanyaan yang paling sering diajukan calon pembeli dan investor terkait legalitas
+                sertifikat, mekanisme pembayaran, serta prosedur survei lokasi tanah 4 hektare di Telukjambe, Karawang.
+              </p>
+              <div className="faq-list">
+                {FAQ_ITEMS.map((item) => {
+                  const isOpen = openFaqId === item.id;
+                  const panelId = `faq-panel-${item.id}`;
+                  const buttonId = `faq-btn-${item.id}`;
+                  return (
+                    <div key={item.id} className={`faq-item${isOpen ? ' open' : ''}`}>
+                      <button
+                        id={buttonId}
+                        type="button"
+                        className="faq-btn"
+                        aria-expanded={isOpen}
+                        aria-controls={panelId}
+                        onClick={() => setOpenFaqId(isOpen ? '' : item.id)}
+                      >
+                        <span className="faq-btn-txt">
+                          <span className="faq-cat">{item.category}</span>
+                          <span className="faq-q">{item.question}</span>
+                        </span>
+                        <span className="faq-chev" aria-hidden="true">
+                          <svg className="ic">
+                            <use href="#i-chev" />
+                          </svg>
+                        </span>
+                      </button>
+                      {isOpen && (
+                        <div id={panelId} role="region" aria-labelledby={buttonId} className="faq-ans">
+                          <p>{item.answer}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="faq-cta">
+                <div className="faq-cta-txt">
+                  <b>Masih ada pertanyaan lain seputar lahan atau jadwal kunjungan?</b>
+                  <small>Konsultasikan langsung dengan tim pemasaran Mitra Property Indonesia.</small>
+                </div>
+                <a
+                  className="btn-wa"
+                  href="https://wa.me/6285781068441?text=Halo%20Mitra%20Property%20Indonesia%2C%20saya%20ingin%20bertanya%20mengenai%20legalitas%2C%20pembayaran%2C%20dan%20survei%20Tanah%204%20Hektare%20di%20Telukjambe%20Karawang."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <svg className="ic">
+                    <use href="#i-wa" />
+                  </svg>
+                  Tanya Tim Pemasaran
+                </a>
+              </div>
+            </div>
+          </article>
+        </section>
       </main>
 
       <footer>
@@ -952,6 +1354,65 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      <div className="share-fab-wrap" ref={shareRef}>
+        {shareOpen && (
+          <div className="share-menu" role="menu" aria-label="Opsi bagikan halaman">
+            <div className="share-menu-hd">Bagikan Halaman Ini</div>
+            <button type="button" className="share-opt" role="menuitem" onClick={handleCopyLink}>
+              <span className={`share-opt-ic ${linkCopied ? 'copied' : 'copy'}`} aria-hidden="true">
+                <svg className="ic">
+                  <use href={linkCopied ? '#i-check' : '#i-link'} />
+                </svg>
+              </span>
+              <span>{linkCopied ? 'Tautan Tersalin!' : 'Salin Tautan (Copy Link)'}</span>
+            </button>
+            <a
+              className="share-opt"
+              role="menuitem"
+              href={`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShareOpen(false)}
+            >
+              <span className="share-opt-ic wa" aria-hidden="true">
+                <svg className="ic">
+                  <use href="#i-wa" />
+                </svg>
+              </span>
+              <span>Bagikan ke WhatsApp</span>
+            </a>
+            <a
+              className="share-opt"
+              role="menuitem"
+              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShareOpen(false)}
+            >
+              <span className="share-opt-ic fb" aria-hidden="true">
+                <svg className="ic">
+                  <use href="#i-fb" />
+                </svg>
+              </span>
+              <span>Bagikan ke Facebook</span>
+            </a>
+          </div>
+        )}
+        <button
+          type="button"
+          className={`share-fab${shareOpen ? ' open' : ''}`}
+          aria-expanded={shareOpen}
+          aria-haspopup="menu"
+          aria-label={shareOpen ? 'Tutup menu bagikan' : 'Bagikan halaman ini'}
+          onClick={() => setShareOpen((prev) => !prev)}
+        >
+          <svg className="ic" aria-hidden="true">
+            <use href={shareOpen ? '#i-close' : '#i-share'} />
+          </svg>
+          <span>{shareOpen ? 'Tutup' : 'Bagikan'}</span>
+        </button>
+      </div>
     </>
   );
 }
