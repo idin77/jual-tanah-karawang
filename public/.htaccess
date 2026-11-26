@@ -1,0 +1,19 @@
+DirectoryIndex index.html index.htm
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Allow existing files (assets, images, manifest, robots) to be served directly
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
+  # Route all non-file requests (including directory paths without an index) to index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_authz_core.c>
+  <FilesMatch "\.(html|htm|js|mjs|css|json|svg|png|jpe?g|webp|gif|ico|woff2?|ttf|mp4|webm|vcf)$">
+    Require all granted
+  </FilesMatch>
+</IfModule>
